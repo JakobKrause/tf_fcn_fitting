@@ -15,7 +15,7 @@ class CustomModel(keras.Model):
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)  # Forward pass
             # Compute our own loss
-            loss = keras.losses.mean_squared_error(y, y_pred)*100
+            loss = keras.losses.mean_squared_error(y, y_pred)
 
         # Compute gradients
         trainable_vars = self.trainable_variables
