@@ -12,22 +12,25 @@ class CustomModel(keras.Model):
     def train_step(self, data):
         x, y = data
 
-        with tf.GradientTape() as tape:
-            y_pred = self(x, training=True)  # Forward pass
-            # Compute our own loss
-            loss = keras.losses.mean_squared_error(y, y_pred)
+        with tf.GradientTape() as tapeX:
+            with tf.GradientTape() as tape:
+                tapeX.watch(x)
+                y_pred = self(x, training=True)  # Forward pass
+                # Compute our own loss
+                dy_dx = tapeX.gradient(y_pred, x)
+                loss = keras.losses.mean_squared_error(y, dy_dx)
 
-        # Compute gradients
-        trainable_vars = self.trainable_variables
-        gradients = tape.gradient(loss, trainable_vars)
+            # Compute gradients
+            trainable_vars = self.trainable_variables
+            gradients = tape.gradient(loss, trainable_vars)
 
-        # Update weights
-        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+            # Update weights
+            self.optimizer.apply_gradients(zip(gradients, trainable_vars))
 
-        # Compute our own metrics
-        self.loss_tracker.update_state(loss)
-        self.mae_metric.update_state(y, y_pred)
-        return {"loss": self.loss_tracker.result(), "mae": self.mae_metric.result()}
+            # Compute our own metrics
+            self.loss_tracker.update_state(loss)
+            self.mae_metric.update_state(y, y_pred)
+            return {"loss": self.loss_tracker.result(), "mae": self.mae_metric.result()}
 
     @property
     def metrics(self):
@@ -51,11 +54,40 @@ model.compile(optimizer="adam")
 lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.8, patience=100, min_lr=0.0001)
 
 x = np.arange(-1, 1, 0.01)
-y = pow(x,2)/3
+x=x.reshape(-1,1)
+# Define the original function y = x^2 / 3
+def original_function(x):
+    return x**2 / 3
 
-model.fit(x, y, epochs=300, callbacks=[lr_scheduler])
+# Compute the integral of the function
+def integral_function(x):
+    return (x**3)/9
+y_original = original_function(x)
+y_integral = integral_function(x)
 
-fig = plt.figure()
-plt.plot(x,y)
-plt.plot(x, model.predict(x))
+model.fit(x, y_original, epochs=2000, callbacks=[lr_scheduler])
+
+# Define the network prediction
+def network_prediction(x, model):
+    return model.predict(x)
+def derivative_network_prediction(x, model):
+    with tf.GradientTape() as tapeXX:
+        tapeXX.watch(x)
+        y_pred = model(x)
+    return tapeXX.gradient(y_pred, x)
+
+y_pred = network_prediction(x, model)
+derivative_y_pred = derivative_network_prediction(tf.constant(x), model)
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(x, y_original, label='Original Function: y = x^2 / 3')
+plt.plot(x, y_integral, label='Integral of Original Function')
+plt.plot(x, y_pred, label='Network Prediction')
+plt.plot(x, derivative_y_pred, label='Derivative of Network Prediction')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True)
+plt.title('Original Function, Integral, Network Prediction, and Derivative of Prediction')
 plt.show()

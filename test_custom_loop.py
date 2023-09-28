@@ -67,7 +67,7 @@ def read_data(file_path):
         values = line.strip().split()
         if len(values) == 3:
             x_y.append([float(values[0]), float(values[1])])
-            z.append(float(values[2]))
+            z.append([float(values[2])])
 
     return np.array(x_y), np.array(z)
 
@@ -87,11 +87,10 @@ z=z[76:418]##*100
 scaler = MinMaxScaler(feature_range=(-1,1))
 scaler.fit(x_y)
 x_y = scaler.transform(x_y)
-
+x_y = x_y
 z_min = np.min(z)
 z_max = np.max(z)
 z = (z - z_min) / (z_max - z_min)
-
 #Apply powerscale. Better fit for data at low power regimes in case a wide range is provided
 z=pow(z, 1/powerscale)
 
@@ -114,7 +113,7 @@ if Training:
 
     # Train the model
     lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.8, patience=50, min_lr=0.0001)
-    model.fit(x_y, z, epochs=300, callbacks=[lr_scheduler])
+    model.fit(x_y, z, epochs=200, callbacks=[lr_scheduler])
     model.save("my_model.keras")
 else:
     # Load the pre-trained model
@@ -129,38 +128,38 @@ print(model.summary())
 #############################################Function generation###########################################################
 ###########################################################################################################################
 
-# Extract weights and biases from the trained model
-w_b_list = [layer.get_weights() for layer in model.layers]
-weights = []
-biases = []
-for element in w_b_list:
-    if element:
-        weights.append(element[0]) 
-        biases.append(element[1]) 
-    #print(element)
+# # Extract weights and biases from the trained model
+# w_b_list = [layer.get_weights() for layer in model.layers]
+# weights = []
+# biases = []
+# for element in w_b_list:
+#     if element:
+#         weights.append(element[0]) 
+#         biases.append(element[1]) 
+#     #print(element)
 
-# weights = [element[0] for element in w_b_array]
-# biases = [element[1] for element in w_b_array]
+# # weights = [element[0] for element in w_b_array]
+# # biases = [element[1] for element in w_b_array]
 
-# Activation functions for each layer
-#activation_functions = [layer.get_config()['activation'] for layer in model.layers]
-activation_functions = []
-config_list = [layer for layer in model.layers]
-for element in config_list:
-    config = element.get_config()
-    if (element._object_identifier != '_tf_keras_input_layer'):
-        activation_functions.append(element.activation.__name__)
+# # Activation functions for each layer
+# #activation_functions = [layer.get_config()['activation'] for layer in model.layers]
+# activation_functions = []
+# config_list = [layer for layer in model.layers]
+# for element in config_list:
+#     config = element.get_config()
+#     if (element._object_identifier != '_tf_keras_input_layer'):
+#         activation_functions.append(element.activation.__name__)
 
-# Print the extracted information
-for i in range(len(weights)):
-    print(f"Layer {i+1}:")
-    print(f"Weights:\n{weights[i]}")
-    print(f"Biases:\n{biases[i]}")
-    print(f"Activation Function: {activation_functions[i]}\n")
+# # Print the extracted information
+# for i in range(len(weights)):
+#     print(f"Layer {i+1}:")
+#     print(f"Weights:\n{weights[i]}")
+#     print(f"Biases:\n{biases[i]}")
+#     print(f"Activation Function: {activation_functions[i]}\n")
 
-# Parse function to txt output
-# outputFunction = []
-# for i in range(1, numInputs+1):
+# # Parse function to txt output
+# # outputFunction = []
+# # for i in range(1, numInputs+1):
 
 
 ###########################################################################################################################
@@ -171,7 +170,10 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 #dump = np.reshape(model.predict(x_y),(342))
 # ax.scatter(x, y, z, c=model.predict(x_y), cmap='viridis')
-ax.scatter(x_y[:, 0], x_y[:, 1], pow(model.predict(x_y), powerscale))
-ax.scatter(x_y[:, 0], x_y[:, 1], pow(z, powerscale))
-ax.scatter(x_y[:, 0], x_y[:, 1], (pow(np.reshape(model.predict(x_y),(342)), powerscale)-pow(z, powerscale)))
+trainingData = pow(z, powerscale)
+modelData = pow(model.predict(x_y), powerscale)
+ax.scatter(x_y[:, 0], x_y[:, 1], modelData)
+ax.scatter(x_y[:, 0], x_y[:, 1], trainingData)
+
+ax.scatter(x_y[:, 0], x_y[:, 1], modelData-trainingData)
 plt.show()
