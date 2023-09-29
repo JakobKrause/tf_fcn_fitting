@@ -51,7 +51,7 @@ output = tf.keras.layers.Dense(1,  use_bias=True, input_shape=(8,))(x)
 model = CustomModel(input, output)
 
 model.compile(optimizer="adam")
-lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.8, patience=100, min_lr=0.0001)
+lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.82, patience=250, min_lr=0.000001)
 
 x = np.arange(-1, 1, 0.01)
 x=x.reshape(-1,1)
@@ -65,7 +65,7 @@ def integral_function(x):
 y_original = original_function(x)
 y_integral = integral_function(x)
 
-model.fit(x, y_original, epochs=2000, callbacks=[lr_scheduler])
+model.fit(x, y_original, epochs=20000, callbacks=[lr_scheduler])
 
 # Define the network prediction
 def network_prediction(x, model):
@@ -84,6 +84,8 @@ plt.figure(figsize=(10, 6))
 plt.plot(x, y_original, label='Original Function: y = x^2 / 3')
 plt.plot(x, y_integral, label='Integral of Original Function')
 plt.plot(x, y_pred, label='Network Prediction')
+plt.plot(x, y_integral-y_pred, label='Error of Prediction')
+plt.plot(x, y_original-derivative_y_pred, label='Error of Derivative of Prediction')
 plt.plot(x, derivative_y_pred, label='Derivative of Network Prediction')
 plt.xlabel('x')
 plt.ylabel('y')
