@@ -65,7 +65,7 @@ def integral_function(x):
 y_original = original_function(x)
 y_integral = integral_function(x)
 
-model.fit(x, y_original, epochs=20000, callbacks=[lr_scheduler])
+model.fit(x, y_original, epochs=1000, callbacks=[lr_scheduler])
 
 # Define the network prediction
 def network_prediction(x, model):

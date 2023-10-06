@@ -6,7 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 ###########################################################################################################################
 Training = True  # Set to True for training, False for loading pre-trained model
-TrainOnDerivative = False
+TrainOnDerivative = True
 CapacitanceFileFormat = True
 powerscale = 1
 ###########################################################################################################################
@@ -53,7 +53,33 @@ class CustomModel(keras.Model):
         # If you don't implement this property, you have to call
         # `reset_states()` yourself at the time of your choosing.
         return [self.loss_tracker, self.mae_metric]
-    
+###########################################################################################################################
+#############################################Utils#########################################################################
+###########################################################################################################################
+
+def calculate_gradient(x, y):
+    """
+    Calculate the gradient of array y with respect to array x.
+
+    Parameters:
+    x (ndarray): 2D array representing x-coordinates.
+    y (ndarray): 2D array representing y-coordinates.
+
+    Returns:
+    gradient_x (ndarray): Gradient of y with respect to x along the x-direction.
+    gradient_y (ndarray): Gradient of y with respect to x along the y-direction.
+    """
+    gradient = np.zeros_like(x)
+
+    gradient[:,0] = np.gradient(y, x[:,0])
+    gradient[:,1] = np.gradient(y, x[:,1])
+    # Calculate the gradient for each element in x
+    # for i in range(x.shape[0]):
+    #     for j in range(x.shape[1]):
+    #         # Compute the gradient for the corresponding element in x
+    #         gradient[i, j] = np.gradient(y, axis=0)[j]
+
+    return gradient
 
 ###########################################################################################################################
 #############################################Data import###################################################################
@@ -121,20 +147,20 @@ if Training:
     x = tf.keras.layers.Dense(8, activation='tanh',  use_bias=True,  input_shape=(15,))(x)
     #x = tf.keras.layers.Dense(10, activation='tanh',  use_bias=True, input_shape=(10,))(x)
     if CapacitanceFileFormat:
-        output = tf.keras.layers.Dense(2,  use_bias=True, input_shape=(8,))(x)
+        output = tf.keras.layers.Dense(1,  use_bias=True, input_shape=(8,))(x)
     else:
         output = tf.keras.layers.Dense(1,  use_bias=True, input_shape=(8,))(x)
     model = CustomModel(input, output)
     #model = tf.keras.models.Model(input, output)
 
     # Compile the model
-    initial_learning_rate = 0.1
+    initial_learning_rate = 0.01
     adam_optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
     model.compile(optimizer=adam_optimizer)
 
     # Train the model
-    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.8, patience=80, min_lr=0.0001)
-    model.fit(x_y, z, epochs=1000, callbacks=[lr_scheduler])
+    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.88, patience=300, min_lr=0.000000000001)
+    model.fit(x_y, z, epochs=30000, callbacks=[lr_scheduler])
     model.save("Qg.keras")
 else:
     # Load the pre-trained model
@@ -150,12 +176,40 @@ print(model.summary())
 # Plot the data
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
+toDisplay = 0
 #dump = np.reshape(model.predict(x_y),(342))
 # ax.scatter(x, y, z, c=model.predict(x_y), cmap='viridis')
 trainingData = pow(z, powerscale)
+trainingData = trainingData[:,toDisplay]
 modelData = pow(model.predict(x_y), powerscale)
-toDisplay = 1
-ax.scatter(x_y[:, 0], x_y[:, 1], modelData[:, toDisplay])
-ax.scatter(x_y[:, 0], x_y[:, 1], trainingData[:, toDisplay])
-ax.scatter(x_y[:, 0], x_y[:, 1], modelData[:, toDisplay]-trainingData[:, toDisplay])
+modelData = modelData[:,0]
+
+###############
+modelData = modelData.reshape(11,38)
+x0 = x_y[::38, 0]  # Extract every other element starting from the first (x0 values)
+x1 = x_y[:,1]
+x1 = x1[:38]  # Extract every other element starting from the second (x1 values)
+gradient_x0 = np.zeros_like(modelData)
+for i in range(x1.size):
+    dump = modelData[:,i]
+    gradient_x0[:,i] = np.gradient(dump, x0)
+
+gradient_x1 = np.zeros_like(modelData)
+for i in range(x0.size):
+    dump = modelData[i,:]
+    gradient_x1[i,:] = np.gradient(dump, x1)
+
+###############
+
+# modelDataDerivative = calculate_gradient(x_y, modelData)
+# modelDataDerivative = modelDataDerivative[:,toDisplay]
+# xxxx = modelDataDerivative[toDisplay]
+
+ax.scatter(x_y[:, 0], x_y[:, 1], modelData)
+ax.scatter(x_y[:, 0], x_y[:, 1], trainingData, marker='+', color='k')
+ax.scatter(x_y[:, 0], x_y[:, 1], gradient_x0.flatten(), marker='v', color='r')
+
+# ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative-trainingData, marker='x', color='k')
+# ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative, marker='+', color='k')
+# ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative[toDisplay])
 plt.show()
