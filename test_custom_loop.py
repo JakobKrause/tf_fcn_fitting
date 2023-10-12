@@ -10,6 +10,7 @@ Training = True  # Set to True for training, False for loading pre-trained model
 TrainOnDerivative = False
 CapacitanceFileFormat = False
 powerscale = 3
+outputVerilogA = False
 ###########################################################################################################################
 
 
@@ -81,7 +82,7 @@ def calculate_gradient(x, y):
     # Calculate the gradient for each element in x
     # for i in range(x.shape[0]):
     #     for j in range(x.shape[1]):
-    #         # Compute the gradient for the corresponding element in x
+    #         # Compute the gradient for the corresponding element in xoutputVerilogA
     #         gradient[i, j] = np.gradient(y, axis=0)[j]
 
     return gradient
@@ -170,7 +171,7 @@ if Training:
     model.compile(optimizer=adam_optimizer)
 
     # Train the model
-    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.87, patience=120, min_lr=0.000001)
+    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.87, patience=50, min_lr=0.000001)
     model.fit(x_y, z, epochs=8000, callbacks=[lr_scheduler])
     model.save("Qg.keras")
 else:
@@ -184,7 +185,8 @@ maxOut = 1
 ###########################################################################################################################
 #############################################Generate Verilog A############################################################
 ###########################################################################################################################
-generateVerilogA(model, minIn, maxIn, minOut, maxOut, powerscale)
+if outputVerilogA:
+    generateVerilogA(model, minIn, maxIn, minOut, maxOut, powerscale)
 
 ###########################################################################################################################
 #############################################Plotting######################################################################
