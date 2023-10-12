@@ -3,13 +3,15 @@ import tensorflow as tf
 import keras
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
+from playground import generateVerilogA
 
 ###########################################################################################################################
 Training = True  # Set to True for training, False for loading pre-trained model
-TrainOnDerivative = True
-CapacitanceFileFormat = True
-powerscale = 1
+TrainOnDerivative = False
+CapacitanceFileFormat = False
+powerscale = 3
 ###########################################################################################################################
+
 
 class CustomModel(keras.Model):
     def __init__(self, *args, **kwargs):
@@ -53,9 +55,12 @@ class CustomModel(keras.Model):
         # If you don't implement this property, you have to call
         # `reset_states()` yourself at the time of your choosing.
         return [self.loss_tracker, self.mae_metric]
+
+
 ###########################################################################################################################
 #############################################Utils#########################################################################
 ###########################################################################################################################
+
 
 def calculate_gradient(x, y):
     """
@@ -71,8 +76,8 @@ def calculate_gradient(x, y):
     """
     gradient = np.zeros_like(x)
 
-    gradient[:,0] = np.gradient(y, x[:,0])
-    gradient[:,1] = np.gradient(y, x[:,1])
+    gradient[:, 0] = np.gradient(y, x[:, 0])
+    gradient[:, 1] = np.gradient(y, x[:, 1])
     # Calculate the gradient for each element in x
     # for i in range(x.shape[0]):
     #     for j in range(x.shape[1]):
@@ -81,13 +86,14 @@ def calculate_gradient(x, y):
 
     return gradient
 
+
 ###########################################################################################################################
 #############################################Data import###################################################################
 ###########################################################################################################################
 # Function to read the data from the text file
 def read_data(file_path):
     # Read the text file and split it into lines
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         lines = file.readlines()
 
     # Initialize empty arrays for x, y, and z
@@ -103,18 +109,18 @@ def read_data(file_path):
             z.append([float(values[2])])
         elif len(values) == 5:
             x_y.append([float(values[0]), float(values[1])])
-            z.append([float(values[3]),float(values[4])])
+            z.append([float(values[3]), float(values[4])])
         else:
             print("Error reading data file!")
             return 0
     return np.array(x_y), np.array(z)
 
+
 # File path to your data file
-file_path = 'ANN_GaAs_Qg_xxx.dat'  # Replace with the actual file path
+file_path = "ANN_GaAs_Id_xx.dat"  # Replace with the actual file path
 
 # Read the dataPP
 x_y, z = read_data(file_path)
-
 
 
 # # Truncate
@@ -123,35 +129,40 @@ x_y, z = read_data(file_path)
 
 # Apply scaling, for better convergence
 # TODO Scaling in function generation
-scaler = MinMaxScaler(feature_range=(-1,1))
+scaler = MinMaxScaler(feature_range=(-1, 1))
 scaler.fit(x_y)
+minIn = scaler.data_min_
+maxIn = scaler.data_max_
 x_y = scaler.transform(x_y)
 
 if CapacitanceFileFormat:
-    scalerZ = MinMaxScaler(feature_range=(-1,1))
+    scalerZ = MinMaxScaler(feature_range=(-1, 1))
     scalerZ.fit(z)
+    minOut = scalerZ.data_min_
+    maxOut = scalerZ.data_max_
     z = scalerZ.transform(z)
 else:
     z_min = np.min(z)
     z_max = np.max(z)
     z = (z - z_min) / (z_max - z_min)
-#Apply powerscale. Better fit for data at low power regimes in case a wide range is provided
-z=pow(z, 1/powerscale)
-
+# Apply powerscale. Better fit for data at low power regimes in case a wide range is provided
+z = pow(z, 1 / powerscale)
 ###########################################################################################################################
 #############################################Network Training##############################################################
 ###########################################################################################################################
-if Training: 
+if Training:
     input = tf.keras.layers.Input(shape=(2,))
-    x = tf.keras.layers.Dense(15, activation='tanh',  use_bias=True,  input_shape=(2,))(input)
-    x = tf.keras.layers.Dense(8, activation='tanh',  use_bias=True,  input_shape=(15,))(x)
-    #x = tf.keras.layers.Dense(10, activation='tanh',  use_bias=True, input_shape=(10,))(x)
+    x = tf.keras.layers.Dense(15, activation="tanh", use_bias=True, input_shape=(2,))(
+        input
+    )
+    x = tf.keras.layers.Dense(8, activation="tanh", use_bias=True, input_shape=(15,))(x)
+    # x = tf.keras.layers.Dense(10, activation='tanh',  use_bias=True, input_shape=(10,))(x)
     if CapacitanceFileFormat:
-        output = tf.keras.layers.Dense(1,  use_bias=True, input_shape=(8,))(x)
+        output = tf.keras.layers.Dense(1, use_bias=True, input_shape=(8,))(x)
     else:
-        output = tf.keras.layers.Dense(1,  use_bias=True, input_shape=(8,))(x)
+        output = tf.keras.layers.Dense(1, use_bias=True, input_shape=(8,))(x)
     model = CustomModel(input, output)
-    #model = tf.keras.models.Model(input, output)
+    # model = tf.keras.models.Model(input, output)
 
     # Compile the model
     initial_learning_rate = 0.01
@@ -159,57 +170,74 @@ if Training:
     model.compile(optimizer=adam_optimizer)
 
     # Train the model
-    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.88, patience=300, min_lr=0.000000000001)
-    model.fit(x_y, z, epochs=30000, callbacks=[lr_scheduler])
+    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.87, patience=120, min_lr=0.000001)
+    model.fit(x_y, z, epochs=8000, callbacks=[lr_scheduler])
     model.save("Qg.keras")
 else:
     # Load the pre-trained model
-    model = tf.keras.models.load_model('Qg.keras')
+    model = tf.keras.models.load_model("Qg.keras")
 
 print(model.summary())
 
-
+minOut = 1
+maxOut = 1
+###########################################################################################################################
+#############################################Generate Verilog A############################################################
+###########################################################################################################################
+generateVerilogA(model, minIn, maxIn, minOut, maxOut, powerscale)
 
 ###########################################################################################################################
 #############################################Plotting######################################################################
 ###########################################################################################################################
-# Plot the data
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-toDisplay = 0
-#dump = np.reshape(model.predict(x_y),(342))
-# ax.scatter(x, y, z, c=model.predict(x_y), cmap='viridis')
-trainingData = pow(z, powerscale)
-trainingData = trainingData[:,toDisplay]
-modelData = pow(model.predict(x_y), powerscale)
-modelData = modelData[:,0]
+if CapacitanceFileFormat:
+    # Plot the data
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    toDisplay = 0
+    # dump = np.reshape(model.predict(x_y),(342))
+    # ax.scatter(x, y, z, c=model.predict(x_y), cmap='viridis')
+    trainingData = pow(z, powerscale)
+    trainingData0 = trainingData[:, 0]
+    trainingData1 = trainingData[:, 1]
+    modelData = pow(model.predict(x_y), powerscale)
+    modelData = modelData[:, 0]  # [[]]->[] because the model is one output
 
-###############
-modelData = modelData.reshape(11,38)
-x0 = x_y[::38, 0]  # Extract every other element starting from the first (x0 values)
-x1 = x_y[:,1]
-x1 = x1[:38]  # Extract every other element starting from the second (x1 values)
-gradient_x0 = np.zeros_like(modelData)
-for i in range(x1.size):
-    dump = modelData[:,i]
-    gradient_x0[:,i] = np.gradient(dump, x0)
+    ###############
+    modelData = modelData.reshape(11, 38)
+    x0 = x_y[::38, 0]  # Extract every other element starting from the first (x0 values)
+    x1 = x_y[:, 1]
+    x1 = x1[:38]  # Extract every other element starting from the second (x1 values)
+    gradient_x0 = np.zeros_like(modelData)
+    for i in range(x1.size):
+        dump = modelData[:, i]
+        gradient_x0[:, i] = np.gradient(dump, x0)
 
-gradient_x1 = np.zeros_like(modelData)
-for i in range(x0.size):
-    dump = modelData[i,:]
-    gradient_x1[i,:] = np.gradient(dump, x1)
+    gradient_x1 = np.zeros_like(modelData)
+    for i in range(x0.size):
+        dump = modelData[i, :]
+        gradient_x1[i, :] = np.gradient(dump, x1)
 
-###############
+    ###############
 
-# modelDataDerivative = calculate_gradient(x_y, modelData)
-# modelDataDerivative = modelDataDerivative[:,toDisplay]
-# xxxx = modelDataDerivative[toDisplay]
+    # modelDataDerivative = calculate_gradient(x_y, modelData)
+    # modelDataDerivative = modelDataDerivative[:,toDisplay]
+    # xxxx = modelDataDerivative[toDisplay]
 
-ax.scatter(x_y[:, 0], x_y[:, 1], modelData)
-ax.scatter(x_y[:, 0], x_y[:, 1], trainingData, marker='+', color='k')
-ax.scatter(x_y[:, 0], x_y[:, 1], gradient_x0.flatten(), marker='v', color='r')
+    ax.scatter(x_y[:, 0], x_y[:, 1], modelData.flatten(), color="g")
+    ax.scatter(x_y[:, 0], x_y[:, 1], trainingData0, marker="+", color="k")
+    ax.scatter(x_y[:, 0], x_y[:, 1], gradient_x0.flatten(), marker="v", color="r")
+    ax.scatter(x_y[:, 0], x_y[:, 1], trainingData1, marker="o", color="k")
+    ax.scatter(x_y[:, 0], x_y[:, 1], gradient_x1.flatten(), marker="x", color="b")
 
-# ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative-trainingData, marker='x', color='k')
-# ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative, marker='+', color='k')
-# ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative[toDisplay])
-plt.show()
+    # ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative-trainingData, marker='x', color='k')
+    # ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative, marker='+', color='k')
+    # ax.scatter(x_y[:, 0], x_y[:, 1], modelDataDerivative[toDisplay])
+    plt.show()
+else:
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    #dump = np.reshape(model.predict(x_y),(342))
+    # ax.scatter(x, y, z, c=model.predict(x_y), cmap='viridis')
+    ax.scatter(x_y[:, 0], x_y[:, 1], pow(model.predict(x_y), powerscale))
+    ax.scatter(x_y[:, 0], x_y[:, 1], pow(z, powerscale))
+    plt.show()
