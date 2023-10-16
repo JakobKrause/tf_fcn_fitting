@@ -1,0 +1,4 @@
+.venv
+.vscode
+.keras
+__pycache__
