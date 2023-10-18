@@ -10,7 +10,7 @@ Training = True  # Set to True for training, False for loading pre-trained model
 TrainOnDerivative = False
 CapacitanceFileFormat = False
 powerscale = 3
-outputVerilogA = False
+outputVerilogA = True
 ###########################################################################################################################
 
 
@@ -172,7 +172,7 @@ if Training:
 
     # Train the model
     lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.87, patience=50, min_lr=0.000001)
-    model.fit(x_y, z, epochs=8000, callbacks=[lr_scheduler])
+    model.fit(x_y, z, epochs=1000, callbacks=[lr_scheduler])
     model.save("Qg.keras")
 else:
     # Load the pre-trained model
