@@ -58,35 +58,6 @@ class CustomModel(keras.Model):
         return [self.loss_tracker, self.mae_metric]
 
 
-###########################################################################################################################
-#############################################Utils#########################################################################
-###########################################################################################################################
-
-
-def calculate_gradient(x, y):
-    """
-    Calculate the gradient of array y with respect to array x.
-
-    Parameters:
-    x (ndarray): 2D array representing x-coordinates.
-    y (ndarray): 2D array representing y-coordinates.
-
-    Returns:
-    gradient_x (ndarray): Gradient of y with respect to x along the x-direction.
-    gradient_y (ndarray): Gradient of y with respect to x along the y-direction.
-    """
-    gradient = np.zeros_like(x)
-
-    gradient[:, 0] = np.gradient(y, x[:, 0])
-    gradient[:, 1] = np.gradient(y, x[:, 1])
-    # Calculate the gradient for each element in x
-    # for i in range(x.shape[0]):
-    #     for j in range(x.shape[1]):
-    #         # Compute the gradient for the corresponding element in xoutputVerilogA
-    #         gradient[i, j] = np.gradient(y, axis=0)[j]
-
-    return gradient
-
 
 ###########################################################################################################################
 #############################################Data import###################################################################
@@ -171,8 +142,8 @@ if Training:
     model.compile(optimizer=adam_optimizer)
 
     # Train the model
-    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.87, patience=50, min_lr=0.000001)
-    model.fit(x_y, z, epochs=1000, callbacks=[lr_scheduler])
+    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.87, patience=50, min_lr=0.000000001)
+    model.fit(x_y, z, epochs=10000, callbacks=[lr_scheduler])
     model.save("Qg.keras")
 else:
     # Load the pre-trained model
@@ -187,6 +158,8 @@ maxOut = 1
 ###########################################################################################################################
 if outputVerilogA:
     generateVerilogA(model, minIn, maxIn, minOut, maxOut, powerscale)
+    from output import plotNetworkOutput
+    plotNetworkOutput()
 
 ###########################################################################################################################
 #############################################Plotting######################################################################
