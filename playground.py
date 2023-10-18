@@ -56,54 +56,7 @@ def generateVerilogA(model, minIn, maxIn, minOut, maxOut, powerscale):
         print('Something went wrong with the lenghts of functions/weights/biases vectors')
 
     num_inputs = len(weights[0])
-    ###########################################################################################################################
-    #############################################Data import###################################################################
-    ###########################################################################################################################
-    # Function to read the data from the text file
-    #powerscale = 1
 
-    def read_data(file_path):
-        # Read the text file and split it into lines
-        with open(file_path, 'r') as file:
-            lines = file.readlines()
-
-        # Initialize empty arrays for x, y, and z
-        x_y = []
-        z = []
-
-        # Parse each line and extract x, y, and z values
-        for line in lines:
-            # Split the line into x, y, and z values (assuming they are space-separated)
-            values = line.strip().split()
-            if len(values) == 3:
-                x_y.append([float(values[0]), float(values[1])])
-                z.append(float(values[2]))
-
-        return np.array(x_y), np.array(z)
-
-    # File path to your data file
-    file_path = 'ANN_GaAs_Id_xx.dat'  # Replace with the actual file path
-
-    # Read the dataPP
-    x_y, z = read_data(file_path)
-
-
-
-    # Truncate
-    x_y = x_y[76:418]
-    z=z[76:418]##*100
-
-    # Apply scaling, for better convergence
-    scaler = MinMaxScaler(feature_range=(-1,1))
-    scaler.fit(x_y)
-    x_y = scaler.transform(x_y)
-
-    z_min = np.min(z)
-    z_max = np.max(z)
-    z = (z - z_min) / (z_max - z_min)
-
-    #Apply powerscale. Better fit for data at low power regimes in case a wide range is provided
-    z=pow(z, 1/powerscale)
 
     ###########################################################################################################################
     #############################################Loop over layers##############################################################
@@ -137,19 +90,21 @@ def generateVerilogA(model, minIn, maxIn, minOut, maxOut, powerscale):
                 for j in range(num_inputs):
                     if argument != "":
                         argument += '+'
-                    w = weights[i][j][k]  # Example: Replace with actual input weights [2.0 * (x - min_x) / (max_x - min_x) - 1.0]
-                    argument += f'((v_{j + 1}-{minIn[j]})*2/({maxIn[j]}-{minIn[j]})-1)*{w}' # With applied input scaling
+                    w = weights[i][j][k]  
+                    # With applied input scaling [2.0 * (x - min_x) / (max_x - min_x) - 1.0]
+                    # NN Input is normalized from -1 to 1
+                    argument += f'((v_{j + 1}-{minIn[j]})*2/({maxIn[j]}-{minIn[j]})-1)*{w}' 
 
             # Check bias
             if argument != "":
                 argument += '+'
-            b = biases[i][k]  # Example: Replace with actual bias values
+            b = biases[i][k]  # Get Bias
             argument += f'{b}'
 
             # Check layer
             if i!=0: # No preceeding layers for first layer
                 for il in range(biases[i-1].size): # dimension of preceeding layer 
-                    lw = weights[i][il][k]
+                    lw = weights[i][il][k] # Get layer connection weight
                     if argument != "":
                         argument += '+'
                     argument += f'{argument_cell[i-1][il]}*{lw}'
