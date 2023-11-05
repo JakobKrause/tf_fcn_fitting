@@ -7,9 +7,9 @@ from playground import generateVerilogA
 
 ###########################################################################################################################
 Training = True  # Set to True for training, False for loading pre-trained model
-TrainOnDerivative = False
+TrainOnDerivative = True
 CapacitanceFileFormat = False
-powerscale = 3
+powerscale = 1
 outputVerilogA = True
 ###########################################################################################################################
 
@@ -89,7 +89,7 @@ def read_data(file_path):
 
 
 # File path to your data file
-file_path = "ANN_GaAs_Id_xx.dat"  # Replace with the actual file path
+file_path = "ANN_GaAs_Cds_vgd.dat"  # Replace with the actual file path
 
 # Read the dataPP
 x_y, z = read_data(file_path)
@@ -107,18 +107,30 @@ minIn = scaler.data_min_
 maxIn = scaler.data_max_
 x_y = scaler.transform(x_y)
 
-if CapacitanceFileFormat:
-    scalerZ = MinMaxScaler(feature_range=(-1, 1))
-    scalerZ.fit(z)
-    minOut = scalerZ.data_min_
-    maxOut = scalerZ.data_max_
-    z = scalerZ.transform(z)
-else:
-    z_min = np.min(z)
-    z_max = np.max(z)
-    z = (z - z_min) / (z_max - z_min)
-# Apply powerscale. Better fit for data at low power regimes in case a wide range is provided
-z = pow(z, 1 / powerscale)
+# if CapacitanceFileFormat:
+#     # scalerZ = MinMaxScaler(feature_range=(-1, 1))
+#     # scalerZ.fit(z)
+#     # minOut = scalerZ.data_min_
+#     # maxOut = scalerZ.data_max_
+#     # z = scalerZ.transform(z)
+#     print("Blabla")
+# else:
+#     z_min = np.min(z)
+#     z_max = np.max(z)
+#     z_scaled = ((z - z_min) / (z_max - z_min)) * (1 - 0) + 0#-1 + 2 * ((z - z_min) / (z_max - z_min))
+#     z_root = np.sign(z_scaled) * np.abs(z_scaled) ** (1/powerscale)
+#     z = z_root
+# # Apply powerscale. Better fit for data at low power regimes in case a wide range is provided
+# plt.figure(figsize=(8, 6))
+# plt.plot(z, label='Original Array')
+# plt.plot(z_scaled, label='Original Array (scaled 0 to 1)')
+# plt.plot(z_root, label='Array after 3rd root')
+# plt.xlabel('Index')
+# plt.ylabel('Value')
+# plt.legend()
+# plt.title('Original Array and 3rd Root of Scaled Array')
+# plt.grid(True)
+# plt.show()
 ###########################################################################################################################
 #############################################Network Training##############################################################
 ###########################################################################################################################
@@ -142,8 +154,8 @@ if Training:
     model.compile(optimizer=adam_optimizer)
 
     # Train the model
-    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.87, patience=50, min_lr=0.000000001)
-    model.fit(x_y, z, epochs=10000, callbacks=[lr_scheduler])
+    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.8, patience=90, min_lr=0.000001)
+    model.fit(x_y, z, epochs=2000, callbacks=[lr_scheduler])
     model.save("Qg.keras")
 else:
     # Load the pre-trained model
@@ -213,6 +225,6 @@ else:
     ax = fig.add_subplot(111, projection='3d')
     #dump = np.reshape(model.predict(x_y),(342))
     # ax.scatter(x, y, z, c=model.predict(x_y), cmap='viridis')
-    ax.scatter(x_y[:, 0], x_y[:, 1], pow(model.predict(x_y), powerscale))
-    ax.scatter(x_y[:, 0], x_y[:, 1], pow(z, powerscale))
+    ax.scatter(x_y[:, 0], x_y[:, 1], pow(model.predict(x_y), powerscale), marker="x", color="b")
+    ax.scatter(x_y[:, 0], x_y[:, 1], pow(z, powerscale), marker="o", color="k")
     plt.show()
