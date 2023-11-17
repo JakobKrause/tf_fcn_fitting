@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Function to read the data from the text file
 def read_data(file_path):
@@ -31,7 +32,7 @@ print("x, y:")
 print(x_y)
 print("z:")
 print(z)
-import matplotlib.pyplot as plt
+
 
 # Extract x, y coordinates
 x = x_y[:, 0]
