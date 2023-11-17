@@ -9,8 +9,8 @@ def write_strings_to_file(string1, filename, powerscale):
         with open(filename, 'w') as file:
             file.write(f'import numpy as np\nimport matplotlib.pyplot as plt\n')
             file.write(f'def plotNetworkOutput():\n')
-            file.write(f'   v_1_a = np.arange(-5,-2.725,0.01)\n')
-            file.write(f'   v_2 = np.arange(0,30,0.3)\n')
+            file.write(f'   v_1_a = np.linspace(4, 29, num=100,)\n')
+            file.write(f'   v_2 = np.linspace(2,12, num=100)\n')
             file.write(f'   fig= plt.figure()\n')
             file.write(f'   ax = fig.add_subplot(111, projection=\'3d\')\n')
             file.write(f'   for v_1 in v_1_a:\n')
@@ -124,7 +124,9 @@ def generateVerilogA(model, minIn, maxIn, minOut, maxOut, powerscale):
             #print(f'Argument {k + 1}: {argument_cell[i][k]}')
             if i == num_layers-1:
                 filename = "output.py"
-                write_strings_to_file(argument_cell[i][k], filename, powerscale)
+                function_string = argument_cell[i][k]
+                function_string += f'*({maxOut}-{minOut})+{minOut}'
+                write_strings_to_file(function_string, filename, powerscale)
     # v_1_a = np.arange(-1,1,0.1)
     # v_2 = np.arange(-1,1,0.1)
 

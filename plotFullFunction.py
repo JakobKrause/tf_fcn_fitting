@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-v_1_a = np.arange(-5,-2.725,0.3)
-v_2 = np.arange(0,30,0.3)
+v_1_a = np.linspace(4, 29, num=6, dtype=int)
+v_2 = np.array([2,4,6,8,10,12])
+
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 

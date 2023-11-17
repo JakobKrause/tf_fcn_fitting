@@ -4,10 +4,11 @@ import keras
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from playground import generateVerilogA
+import os
 
 ###########################################################################################################################
 Training = True  # Set to True for training, False for loading pre-trained model
-TrainOnDerivative = True
+TrainOnDerivative = False
 CapacitanceFileFormat = False
 powerscale = 1
 outputVerilogA = True
@@ -63,36 +64,49 @@ class CustomModel(keras.Model):
 #############################################Data import###################################################################
 ###########################################################################################################################
 # Function to read the data from the text file
-def read_data(file_path):
-    # Read the text file and split it into lines
-    with open(file_path, "r") as file:
-        lines = file.readlines()
+def read_data():
 
     # Initialize empty arrays for x, y, and z
-    x_y = []
-    z = []
+    x = [4,6,9,14,19,24,29]
+    y = [2,2.5,3,3.5,4,5,6,8,10,12]
+    result_matrix =  np.zeros((len(y), len(x)))
 
-    # Parse each line and extract x, y, and z values
-    for line in lines:
-        # Split the line into x, y, and z values (assuming they are space-separated)
-        values = line.strip().split()
-        if len(values) == 3:
-            x_y.append([float(values[0]), float(values[1])])
-            z.append([float(values[2])])
-        elif len(values) == 5:
-            x_y.append([float(values[0]), float(values[1])])
-            z.append([float(values[3]), float(values[4])])
-        else:
-            print("Error reading data file!")
-            return 0
-    return np.array(x_y), np.array(z)
+    # Loop through each folder
+    # Construct the file paths for dat1/iv.dat and dat17/iv.dat
+    for i in range(len(y)):
+        for j in range(len(x)):
+            folder_name = f"C:\SST_BP1\SOIMOS_dox{y[i]}nm_L{x[j]}nm"
+            file_path1 = os.path.join( folder_name, 'dat1', 'iv.dat')
+            file_path17 = os.path.join( folder_name, 'dat17', 'iv.dat')
 
+            try:
+                # Read values from dat1/iv.dat
+                data1 = np.loadtxt(file_path1, skiprows=1)  # Skip the header line
+                ids_vgs0V = data1[1]
+                #value1 = data1[0, 1]  # Assuming the value you want is in the first row, second column
+                
+                # Read values from dat17/iv.dat
+                data17 = np.loadtxt(file_path17, skiprows=2)  # Skip the header line
+                ids_vgs8V = data17[1]  # Assuming the value you want is in the first row, second column
 
-# File path to your data file
-file_path = "ANN_GaAs_Cds_vgd.dat"  # Replace with the actual file path
+                # Append the values to the result matrix
+                ids_ratio =ids_vgs8V/ids_vgs0V
+                result_matrix[i][j] = ids_ratio
+            except Exception as e:
+                # Handle the case where the file is not found or the format is incorrect
+                print(f'Error reading files in folder {folder_name}: {str(e)}')
+    x,y = np.meshgrid(x, y)
+    x= x.flatten()
+    y=y.flatten()
+    x_y = np.matrix([x,y])
+    x_y = x_y.transpose()
+    result_matrix = np.log10(result_matrix.flatten())
+
+    return np.array(x_y), np.array(result_matrix)
+
 
 # Read the dataPP
-x_y, z = read_data(file_path)
+x_y, z = read_data()
 
 
 # # Truncate
@@ -115,11 +129,11 @@ x_y = scaler.transform(x_y)
 #     # z = scalerZ.transform(z)
 #     print("Blabla")
 # else:
-#     z_min = np.min(z)
-#     z_max = np.max(z)
-#     z_scaled = ((z - z_min) / (z_max - z_min)) * (1 - 0) + 0#-1 + 2 * ((z - z_min) / (z_max - z_min))
-#     z_root = np.sign(z_scaled) * np.abs(z_scaled) ** (1/powerscale)
-#     z = z_root
+z_min = np.min(z)
+z_max = np.max(z)
+z_scaled = ((z - z_min) / (z_max - z_min)) * (1 - 0) + 0#-1 + 2 * ((z - z_min) / (z_max - z_min))
+z_root = np.sign(z_scaled) * np.abs(z_scaled) ** (1/powerscale)
+
 # # Apply powerscale. Better fit for data at low power regimes in case a wide range is provided
 # plt.figure(figsize=(8, 6))
 # plt.plot(z, label='Original Array')
@@ -136,26 +150,25 @@ x_y = scaler.transform(x_y)
 ###########################################################################################################################
 if Training:
     input = tf.keras.layers.Input(shape=(2,))
-    x = tf.keras.layers.Dense(15, activation="tanh", use_bias=True, input_shape=(2,))(
+    x = tf.keras.layers.Dense(8, activation="tanh", use_bias=True, input_shape=(2,))(
         input
     )
-    x = tf.keras.layers.Dense(8, activation="tanh", use_bias=True, input_shape=(15,))(x)
-    # x = tf.keras.layers.Dense(10, activation='tanh',  use_bias=True, input_shape=(10,))(x)
+    x = tf.keras.layers.Dense(8, activation="tanh", use_bias=True, input_shape=(8,))(x)
     if CapacitanceFileFormat:
         output = tf.keras.layers.Dense(1, use_bias=True, input_shape=(8,))(x)
     else:
         output = tf.keras.layers.Dense(1, use_bias=True, input_shape=(8,))(x)
-    model = CustomModel(input, output)
-    # model = tf.keras.models.Model(input, output)
+    #model = CustomModel(input, output)
+    model = tf.keras.models.Model(input, output)
 
     # Compile the model
-    initial_learning_rate = 0.01
+    initial_learning_rate = 0.1
     adam_optimizer = tf.keras.optimizers.Adam(learning_rate=initial_learning_rate)
-    model.compile(optimizer=adam_optimizer)
+    model.compile(optimizer=adam_optimizer, loss='mse')
 
     # Train the model
-    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.8, patience=90, min_lr=0.000001)
-    model.fit(x_y, z, epochs=2000, callbacks=[lr_scheduler])
+    lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.9, patience=90, min_lr=0.000001)
+    model.fit(x_y, z_scaled, epochs=2000, callbacks=[lr_scheduler])
     model.save("Qg.keras")
 else:
     # Load the pre-trained model
@@ -163,8 +176,8 @@ else:
 
 print(model.summary())
 
-minOut = 1
-maxOut = 1
+minOut = z_min
+maxOut = z_max
 ###########################################################################################################################
 #############################################Generate Verilog A############################################################
 ###########################################################################################################################
@@ -225,6 +238,33 @@ else:
     ax = fig.add_subplot(111, projection='3d')
     #dump = np.reshape(model.predict(x_y),(342))
     # ax.scatter(x, y, z, c=model.predict(x_y), cmap='viridis')
-    ax.scatter(x_y[:, 0], x_y[:, 1], pow(model.predict(x_y), powerscale), marker="x", color="b")
+    result  = model.predict(x_y)
+    result_scaled = result * (z_max-z_min)+z_min
+    ax.scatter(x_y[:, 0], x_y[:, 1], pow(result_scaled, powerscale), marker="x", color="b")
     ax.scatter(x_y[:, 0], x_y[:, 1], pow(z, powerscale), marker="o", color="k")
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    x_check = np.linspace(-1, 1, num=60)
+    y_check = np.linspace(-1, 1, num=60)
+    x_check,y_check = np.meshgrid(x_check, y_check)
+    x_check_flat= x_check.flatten()
+    y_check_flat=y_check.flatten()
+    x_y_check = np.matrix([x_check_flat,y_check_flat])
+    x_y_check = x_y_check.transpose()
+
+    result_check  = model.predict(x_y_check)
+    result_check = result_check * (z_max-z_min)+z_min
+    ax.contour(x_check, y_check, result_check.reshape(60,60),levels=[5], colors='r', width=10)
+    ax.plot_wireframe(x_check, y_check, result_check.reshape(60,60))
+    ax.scatter(x_y[:, 0], x_y[:, 1], pow(result_scaled, powerscale), marker="x", color="b")
+
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.contour(x_check, y_check, result_check.reshape(60,60),levels=[5], colors='r', width=10)
+
+
+
     plt.show()
+    
